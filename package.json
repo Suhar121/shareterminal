@@ -1,0 +1,15 @@
+{
+  "name": "shareterm",
+  "version": "1.0.0",
+  "description": "Wrap any terminal command and mirror it live to your phone",
+  "bin": {
+    "shareterm": "./shareterm.js"
+  },
+  "scripts": {
+    "start": "node shareterm.js"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.16.0"
+  }
+}

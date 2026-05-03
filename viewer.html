@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>shareterm</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
+<style>
+:root {
+  --ink:     #0a0a0f;
+  --paper:   #f5f0e8;
+  --warm:    #ede8e0;
+  --amber:   #d4820a;
+  --amber2:  #f5a623;
+  --green:   #2a7a3b;
+  --red:     #c0392b;
+  --muted:   #8a8078;
+  --border:  #d0c8bc;
+  --mono:    'IBM Plex Mono', monospace;
+  --sans:    'IBM Plex Sans', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100%; height: 100%; height: 100dvh;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  overflow: hidden;
+}
+
+/* ── Pair Screen ── */
+#pair-screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--ink);
+  padding: 28px;
+  gap: 32px;
+}
+
+.brand {
+  text-align: center;
+}
+.brand-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 6px;
+  color: var(--amber);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.brand-tagline {
+  font-size: 11px;
+  color: #444;
+  letter-spacing: 1px;
+}
+
+.pair-card {
+  width: 100%;
+  max-width: 340px;
+  border: 1px solid #222;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pair-card-header {
+  background: #111;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #222;
+}
+
+.header-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: 1px solid #333;
+}
+.header-dot.r { background: #3a1010; border-color: #5a2020; }
+.header-dot.y { background: #3a2e10; border-color: #5a4a20; }
+.header-dot.g { background: #0a2a10; border-color: #1a4a20; }
+
+.pair-card-title {
+  font-size: 11px;
+  color: #444;
+  margin-left: 4px;
+  letter-spacing: 1px;
+}
+
+.pair-card-body {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #0d0d0d;
+}
+
+.field-group label {
+  display: block;
+  font-size: 10px;
+  color: #444;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+
+.code-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.code-input {
+  width: 44px; height: 54px;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--amber2);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+  caret-color: var(--amber2);
+  text-transform: uppercase;
+}
+
+.code-input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(212,130,10,0.15);
+}
+
+.host-input-wrap input {
+  width: 100%;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: #bbb;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+.host-input-wrap input:focus {
+  border-color: #444;
+}
+.host-input-wrap input::placeholder { color: #333; }
+
+.pair-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--amber);
+  border: none;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #000;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.pair-btn:active { transform: scale(0.98); background: #b8700a; }
+
+.pair-error {
+  font-size: 11px;
+  color: #c0392b;
+  text-align: center;
+  min-height: 14px;
+  font-family: var(--sans);
+}
+
+/* ── Connecting ── */
+#connecting {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--ink);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+#connecting.show { display: flex; }
+
+.connecting-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #444;
+}
+
+.progress-bar {
+  width: 120px; height: 2px;
+  background: #1a1a1a;
+  border-radius: 1px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--amber);
+  width: 30%;
+  animation: sweep 1.2s ease-in-out infinite;
+}
+@keyframes sweep {
+  0% { margin-left: 0; width: 30%; }
+  50% { margin-left: 70%; width: 30%; }
+  100% { margin-left: 0; width: 30%; }
+}
+
+/* ── App ── */
+#app {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+#app.show { display: flex; }
+
+.topbar {
+  background: #111;
+  border-bottom: 1px solid #1e1e1e;
+  padding: 0 14px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.topbar-left {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.live-badge {
+  display: flex; align-items: center; gap: 5px;
+  background: #0d1f0d;
+  border: 1px solid #1a3a1a;
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 6px #2ecc71;
+  animation: liveblink 1.5s ease infinite;
+}
+@keyframes liveblink {
+  0%,100% { opacity:1; } 50% { opacity: 0.3; }
+}
+.live-dot.dead { background: #555; box-shadow: none; animation: none; }
+
+.live-text {
+  font-size: 10px;
+  color: #2ecc71;
+  letter-spacing: 1.5px;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+.live-text.dead { color: #555; }
+
+.session-id {
+  font-size: 11px;
+  color: #333;
+  font-family: var(--mono);
+}
+
+.topbar-right {
+  display: flex; gap: 6px; align-items: center;
+}
+
+.viewer-count {
+  font-size: 10px;
+  color: #333;
+  font-family: var(--sans);
+  letter-spacing: 0.5px;
+}
+
+.tb-btn {
+  width: 30px; height: 30px;
+  border-radius: 3px;
+  border: 1px solid #222;
+  background: transparent;
+  color: #444;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.tb-btn:active { background: #1a1a1a; color: var(--amber); border-color: #333; }
+
+#terminal-wrap {
+  flex: 1;
+  overflow: hidden;
+  padding: 6px 4px 4px;
+}
+
+/* Readonly overlay badge */
+.readonly-banner {
+  position: absolute;
+  top: 52px; right: 12px;
+  background: #1a1500;
+  border: 1px solid #3a3000;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 10px;
+  color: var(--amber);
+  letter-spacing: 1.5px;
+  font-family: var(--sans);
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Keyboard Toolbar ── */
+.kb-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  background: #0d0d0d;
+  border-top: 1px solid #1a1a1a;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.kb-bar::-webkit-scrollbar { display: none; }
+
+.k {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  background: #161616;
+  border: 1px solid #252525;
+  border-radius: 3px;
+  color: #999;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.k:active { background: #1e1800; border-color: var(--amber); color: var(--amber2); }
+.k.amber { color: var(--amber2); border-color: #2a2000; }
+
+.k-sep { width: 1px; height: 18px; background: #1e1e1e; flex-shrink: 0; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#pair-screen, #app { animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+
+<!-- PAIR SCREEN -->
+<div id="pair-screen">
+  <div class="brand">
+    <div class="brand-name">shareterm</div>
+    <div class="brand-tagline">live terminal pairing</div>
+  </div>
+
+  <div class="pair-card">
+    <div class="pair-card-header">
+      <div class="header-dot r"></div>
+      <div class="header-dot y"></div>
+      <div class="header-dot g"></div>
+      <span class="pair-card-title">new session</span>
+    </div>
+    <div class="pair-card-body">
+      <div class="field-group">
+        <label>PAIRING CODE</label>
+        <div class="code-inputs" id="code-inputs">
+          <input class="code-input" maxlength="1" id="c0" inputmode="text">
+          <input class="code-input" maxlength="1" id="c1" inputmode="text">
+          <input class="code-input" maxlength="1" id="c2" inputmode="text">
+          <input class="code-input" maxlength="1" id="c3" inputmode="text">
+          <input class="code-input" maxlength="1" id="c4" inputmode="text">
+          <input class="code-input" maxlength="1" id="c5" inputmode="text">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>HOST</label>
+        <div class="host-input-wrap">
+          <input type="text" id="host-input" placeholder="192.168.x.x:4321"
+            autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+        </div>
+      </div>
+      <div class="pair-error" id="pair-error"></div>
+      <button class="pair-btn" onclick="startPair()">PAIR →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONNECTING -->
+<div id="connecting">
+  <div class="connecting-label">PAIRING</div>
+  <div class="progress-bar"><div class="progress-fill"></div></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="live-badge">
+        <div class="live-dot" id="live-dot"></div>
+        <span class="live-text" id="live-text">LIVE</span>
+      </div>
+      <span class="session-id" id="session-label"></span>
+    </div>
+    <div class="topbar-right">
+      <span class="viewer-count" id="viewer-count"></span>
+      <button class="tb-btn" title="Clear" onclick="term && term.clear()">⌫</button>
+      <button class="tb-btn" title="Toggle keys" onclick="toggleKb()">⌨</button>
+      <button class="tb-btn" title="Disconnect" onclick="doDisconnect()">✕</button>
+    </div>
+  </div>
+
+  <div id="terminal-wrap" style="position:relative; min-height: 0; flex: 1 1 0%;">
+    <div id="terminal" style="width:100%;height:100%;display:block;"></div>
+    <div class="readonly-banner" id="readonly-badge" style="display:none">WATCH ONLY</div>
+    <div id="debug-info" style="position:absolute;top:50px;left:10px;color:#555;font-size:10px;display:none;"></div>
+  </div>
+
+  <div class="kb-bar" id="kb-bar">
+    <button class="k amber" onclick="sk('ctrl-c')">^C</button>
+    <button class="k amber" onclick="sk('ctrl-d')">^D</button>
+    <button class="k amber" onclick="sk('ctrl-l')">^L</button>
+    <button class="k amber" onclick="sk('ctrl-z')">^Z</button>
+    <div class="k-sep"></div>
+    <button class="k" onclick="sk('tab')">TAB</button>
+    <button class="k" onclick="sk('esc')">ESC</button>
+    <button class="k" onclick="sk('up')">▲</button>
+    <button class="k" onclick="sk('down')">▼</button>
+    <button class="k" onclick="sk('left')">◀</button>
+    <button class="k" onclick="sk('right')">▶</button>
+    <div class="k-sep"></div>
+    <button class="k" onclick="sk('home')">HOME</button>
+    <button class="k" onclick="sk('end')">END</button>
+    <div class="k-sep"></div>
+    <button class="k" onclick="ss('q')">q</button>
+    <button class="k" onclick="ss('\r')">↵</button>
+  </div>
+</div>
+
+<script>
+// ── Debug helper ────────────────────────────────────────────────────────────
+function showDebug(msg) {
+  console.error('[shareterm]', msg);
+  const el = document.getElementById('debug-info');
+  if (el) {
+    el.style.display = 'block';
+    el.textContent = msg;
+  }
+}
+
+// Check xterm loaded
+if (typeof Terminal === 'undefined') {
+  showDebug('ERROR: Terminal not loaded! Check CDN.');
+}
+if (typeof FitAddon === 'undefined') {
+  showDebug('ERROR: FitAddon not loaded! Check CDN.');
+}
+
+// ── Code input UX ────────────────────────────────────────────────────────────
+
+const codeBoxes = Array.from({ length: 6 }, (_, i) => document.getElementById(`c${i}`));
+
+codeBoxes.forEach((box, i) => {
+  box.addEventListener('input', () => {
+    const v = box.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    box.value = v;
+    if (v && i < 5) codeBoxes[i + 1].focus();
+    if (getCode().length === 6) document.getElementById('pair-btn')?.focus();
+  });
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && !box.value && i > 0) codeBoxes[i - 1].focus();
+    if (e.key === 'Enter') startPair();
+  });
+  box.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData.getData('text') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    text.split('').slice(0, 6).forEach((ch, j) => {
+      if (codeBoxes[j]) codeBoxes[j].value = ch;
+    });
+    const next = Math.min(text.length, 5);
+    codeBoxes[next].focus();
+  });
+});
+
+// Auto fill host from current URL
+window.addEventListener('DOMContentLoaded', () => {
+  const h = document.getElementById('host-input');
+  h.value = `${location.hostname}:${location.port || 80}`;
+  codeBoxes[0].focus();
+});
+
+function getCode() {
+  return codeBoxes.map(b => b.value).join('').toUpperCase();
+}
+
+// ── WebSocket + Terminal ─────────────────────────────────────────────────────
+
+let ws = null, term = null, fit = null;
+let pendingOutput = [];
+let isReadonly = false;
+
+function startPair() {
+  const code = getCode();
+  const host = document.getElementById('host-input').value.trim();
+  const err  = document.getElementById('pair-error');
+  err.textContent = '';
+
+  if (code.length !== 6) { err.textContent = 'Enter the 6-character pairing code'; return; }
+  if (!host) { err.textContent = 'Enter the host shown in your terminal'; return; }
+
+  document.getElementById('pair-screen').style.display = 'none';
+  const conn = document.getElementById('connecting');
+  conn.classList.add('show');
+
+  ws = new WebSocket(`ws://${host}`);
+
+  ws.onopen = () => {};
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+
+    if (msg.type === 'challenge') {
+      isReadonly = msg.readonly;
+      ws.send(JSON.stringify({ type: 'auth', token: code }));
+    }
+    else if (msg.type === 'auth_ok') {
+      conn.classList.remove('show');
+      initApp(code, isReadonly || msg.readonly);
+    }
+    else if (msg.type === 'auth_fail') {
+      conn.classList.remove('show');
+      document.getElementById('pair-screen').style.display = 'flex';
+      err.textContent = '✕ Wrong code — check the terminal banner';
+      ws = null;
+    }
+    else if (msg.type === 'output') {
+      if (term) {
+        term.write(msg.data);
+      } else {
+        pendingOutput.push(msg.data);
+      }
+    }
+    else if (msg.type === 'viewers') {
+      const el = document.getElementById('viewer-count');
+      if (el) el.textContent = `${msg.count} viewer${msg.count !== 1 ? 's' : ''}`;
+    }
+    else if (msg.type === 'exit') {
+      term?.write('\r\n\x1b[33m[process exited]\x1b[0m\r\n');
+      document.getElementById('live-dot').classList.add('dead');
+      document.getElementById('live-text').classList.add('dead');
+      document.getElementById('live-text').textContent = 'ENDED';
+    }
+  };
+
+  ws.onerror = () => {
+    conn.classList.remove('show');
+    document.getElementById('pair-screen').style.display = 'flex';
+    document.getElementById('pair-error').textContent = '✕ Could not connect — check host & port';
+    ws = null;
+  };
+
+  ws.onclose = () => {
+    if (document.getElementById('live-dot')) {
+      document.getElementById('live-dot').classList.add('dead');
+      document.getElementById('live-text').classList.add('dead');
+    }
+  };
+}
+
+function initApp(code, readonly) {
+  try {
+    const app = document.getElementById('app');
+    app.classList.add('show');
+    document.getElementById('session-label').textContent = code;
+    if (readonly) document.getElementById('readonly-badge').style.display = 'block';
+
+    // Force layout - make sure terminal-wrap has dimensions
+    const termWrap = document.getElementById('terminal-wrap');
+    const termDiv = document.getElementById('terminal');
+    
+    // Force height calculation
+    termWrap.style.height = termWrap.clientHeight + 'px';
+    termDiv.style.height = '100%';
+    termDiv.style.width = '100%';
+
+    term = new Terminal({
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 13,
+      lineHeight: 1.45,
+      theme: {
+        background:   '#050505',
+        foreground:   '#d4c9a8',
+        cursor:       '#d4820a',
+        cursorAccent: '#000',
+        black:        '#1a1a1a',
+        red:          '#c0392b',
+        green:        '#27ae60',
+        yellow:       '#d4820a',
+        blue:         '#2980b9',
+        magenta:      '#8e44ad',
+        cyan:         '#16a085',
+        white:        '#d4c9a8',
+        brightBlack:  '#555',
+        brightGreen:  '#2ecc71',
+        brightYellow: '#f5a623',
+      },
+      cursorBlink: !readonly,
+      cursorStyle: 'block',
+      scrollback: 5000,
+      disableStdin: readonly,
+    });
+
+    fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(termDiv);
+    
+    // Multiple fit attempts to ensure proper sizing
+    setTimeout(() => fit.fit(), 50);
+    setTimeout(() => fit.fit(), 200);
+    setTimeout(() => fit.fit(), 500);
+
+    if (pendingOutput.length) {
+      const queued = pendingOutput.slice();
+      pendingOutput = [];
+      queued.forEach(data => term.write(data));
+    }
+
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      ws.send(JSON.stringify({ type: 'ready' }));
+    }
+
+    if (!readonly) {
+      term.onData(data => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'input', data }));
+        }
+      });
+    } else {
+      document.getElementById('kb-bar').style.display = 'none';
+    }
+
+    new ResizeObserver(() => {
+      fit?.fit();
+      ws?.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+    }).observe(termWrap);
+
+    window.addEventListener('orientationchange', () => setTimeout(() => fit?.fit(), 300));
+
+    if (!readonly) term.focus();
+    
+    // Write test output to verify terminal is working
+    term.write('\x1b[32mTerminal connected!\x1b[0m\r\n');
+    
+  } catch (err) {
+    showDebug('initApp error: ' + err.message);
+    console.error('shareterm initApp error:', err);
+  }
+}
+
+function doDisconnect() { ws?.close(); location.reload(); }
+
+function toggleKb() {
+  const bar = document.getElementById('kb-bar');
+  bar.style.display = bar.style.display === 'none' ? 'flex' : 'none';
+  setTimeout(() => fit?.fit(), 50);
+}
+
+const keys = {
+  'ctrl-c':'\x03','ctrl-d':'\x04','ctrl-l':'\x0c','ctrl-z':'\x1a',
+  'tab':'\x09','esc':'\x1b',
+  'up':'\x1b[A','down':'\x1b[B','right':'\x1b[C','left':'\x1b[D',
+  'home':'\x1b[H','end':'\x1b[F',
+};
+
+function sk(k) {
+  ws?.send(JSON.stringify({ type: 'input', data: keys[k] || '' }));
+}
+function ss(s) {
+  ws?.send(JSON.stringify({ type: 'input', data: s }));
+}
+</script>
+</body>
+</html>
